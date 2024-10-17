@@ -1,118 +1,140 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useState} from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
   View,
+  Text,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
+import OpenAI from 'openai';
+import {Button, TextInput} from 'react-native-paper';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+const openai = new OpenAI({
+  apiKey:
+    'YOUR API_KEY HERE',
+  baseURL: 'https://integrate.api.nvidia.com/v1',
+});
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+const App = () => {
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+  const [messages, setMessages] = useState([
+    {role: 'assistant', content: 'Hello! How can I assist you today?'},
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  const sendMessage = async () => {
+    if (input.trim() === '') {
+      return;
+    }
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+    const newMessages = [...messages, {role: 'user', content: input}];
+    setMessages(newMessages);
+    setInput('');
+    setLoading(true);
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+        messages: newMessages,
+        temperature: 0.9,
+        max_tokens: 1024,
+        stream: false,
+      });
+
+      const reply =
+        completion.choices[0]?.message?.content?.replace(/\*/g, '') ||
+        'No response from model.';
+      setMessages(prevMessages => [
+        ...prevMessages,
+        {role: 'assistant', content: reply},
+      ]);
+    } catch (error) {
+      Alert.alert('Sorry!', 'There seems to be an error. Please restart the app and try again.');
+      console.error('Error fetching response:', error);
+    } finally {
+      setLoading(false);
+    }
   };
-
+const clear = () =>{
+  setMessages([ {role: 'assistant', content: 'Hello! How can I assist you today?'}]);
+}
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
+    <SafeAreaView
+      style={{
+        flex: 1,
+        paddingTop: 20,
+        paddingHorizontal: 0.3,
+        backgroundColor: '#f6fcf2',
+      }}>
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
+        showsVerticalScrollIndicator={false}
+        style={{flex: 1, marginBottom: 10}}
+        contentContainerStyle={{paddingBottom: 20}}>
+        {messages.map((message, index) => (
+          <View
+            key={index}
+            style={{
+              marginBottom: 10,
+              padding: 10,
+              backgroundColor: message.role === 'user' ? '#d9ffbf' : '#368700',
+              alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+              borderTopRightRadius: message.role === 'user' ? 0 : 50,
+              borderBottomRightRadius: message.role === 'user' ? 0 : 50,
+              borderTopLeftRadius: message.role === 'user' ? 50 : 0,
+              borderBottomLeftRadius: message.role === 'user' ? 50 : 0,
+              maxWidth: '80%',
+            }}>
+            <Text
+              style={{
+                color: message.role === 'user' ? '#000' : '#fff',
+                fontSize: 14,
+                fontWeight: 'bold',
+                fontFamily: 'notoserif',
+              }}>
+              {message.content}
+            </Text>
+          </View>
+        ))}
+        {loading && <ActivityIndicator size="large" color="#368700" />}
       </ScrollView>
+
+      <View style={{flexDirection: 'row', alignItems: 'center', padding: 10}}>
+      <Button
+          onPress={clear}
+          disabled={loading}
+          mode="elevated"
+          textColor="#fff"
+          buttonColor="#990000">
+          CLEAR
+        </Button>
+        <TextInput
+          mode="outlined"
+          style={{
+            marginHorizontal: 10,
+            backgroundColor: 'transparent',
+            height: 40,
+            width:'50%'
+          }}
+          outlineColor="#368700"
+          activeOutlineColor="#368700"
+          outlineStyle={{borderRadius: 50}}
+          label="   Ask me anything..."
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={sendMessage}
+        />
+        <Button
+          onPress={sendMessage}
+          disabled={loading}
+          mode="elevated"
+          textColor="#fff"
+          buttonColor="#368700">
+          SEND
+        </Button>
+      </View>
     </SafeAreaView>
   );
-}
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
+};
 
 export default App;
