@@ -1,25 +1,24 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
   View,
   Text,
   ActivityIndicator,
-  Alert
+  Alert,
 } from 'react-native';
 import OpenAI from 'openai';
-import {Button, TextInput} from 'react-native-paper';
+import { Button, TextInput } from 'react-native-paper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const openai = new OpenAI({
-  apiKey:
-    'YOUR API_KEY HERE',
+  apiKey: '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',
   baseURL: 'https://integrate.api.nvidia.com/v1',
 });
 
 const App = () => {
-
   const [messages, setMessages] = useState([
-    {role: 'assistant', content: 'Hello! How can I assist you today?'},
+    { role: 'assistant', content: '👋 Hello! How can I assist you today?' },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +28,7 @@ const App = () => {
       return;
     }
 
-    const newMessages = [...messages, {role: 'user', content: input}];
+    const newMessages = [...messages, { role: 'user', content: input }];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
@@ -47,8 +46,9 @@ const App = () => {
         'No response from model.';
       setMessages(prevMessages => [
         ...prevMessages,
-        {role: 'assistant', content: reply},
+        { role: 'assistant', content: reply },
       ]);
+      saveConversation(newMessages.concat({ role: 'assistant', content: reply }));
     } catch (error) {
       Alert.alert('Sorry!', 'There seems to be an error. Please restart the app and try again.');
       console.error('Error fetching response:', error);
@@ -56,9 +56,24 @@ const App = () => {
       setLoading(false);
     }
   };
-const clear = () =>{
-  setMessages([ {role: 'assistant', content: 'Hello! How can I assist you today?'}]);
-}
+
+  const saveConversation = async (conversation) => {
+    try {
+      const savedConversations = await AsyncStorage.getItem('conversations');
+      const updatedConversations = savedConversations
+        ? JSON.parse(savedConversations)
+        : [];
+      updatedConversations.push(conversation);
+      await AsyncStorage.setItem('conversations', JSON.stringify(updatedConversations));
+    } catch (error) {
+      console.error('Error saving conversation:', error);
+    }
+  };
+
+  const clear = () => {
+    setMessages([{ role: 'assistant', content: '👋 Hello! How can I assist you today?' }]);
+  };
+
   return (
     <SafeAreaView
       style={{
@@ -69,8 +84,8 @@ const clear = () =>{
       }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        style={{flex: 1, marginBottom: 10}}
-        contentContainerStyle={{paddingBottom: 20}}>
+        style={{ flex: 1, marginBottom: 10 }}
+        contentContainerStyle={{ paddingBottom: 20 }}>
         {messages.map((message, index) => (
           <View
             key={index}
@@ -99,8 +114,8 @@ const clear = () =>{
         {loading && <ActivityIndicator size="large" color="#368700" />}
       </ScrollView>
 
-      <View style={{flexDirection: 'row', alignItems: 'center', padding: 10}}>
-      <Button
+      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10 }}>
+        <Button
           onPress={clear}
           disabled={loading}
           mode="elevated"
@@ -114,11 +129,11 @@ const clear = () =>{
             marginHorizontal: 10,
             backgroundColor: 'transparent',
             height: 40,
-            width:'50%'
+            width: '50%',
           }}
           outlineColor="#368700"
           activeOutlineColor="#368700"
-          outlineStyle={{borderRadius: 50}}
+          outlineStyle={{ borderRadius: 50 }}
           label="   Ask me anything..."
           value={input}
           onChangeText={setInput}
